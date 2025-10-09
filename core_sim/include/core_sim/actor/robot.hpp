@@ -91,6 +91,8 @@ class Robot : public Actor {
 
   void SetController(std::unique_ptr<IController> controller);
 
+  void SetGPSOriginOffset(const Transform& gps_origin);
+
   void PublishRobotPose(const PoseStampedMessage& pose);
 
   void SetCallbackKinematicsUpdated(const KinematicsCallback& callback);

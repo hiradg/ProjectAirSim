@@ -395,6 +395,7 @@ class Constant {
     static constexpr const char* angular_drag_coefficient =
         "angular-drag-coefficient";
     static constexpr const char* home_geo_point = "home-geo-point";
+    static constexpr const char* visual_origin = "visual-origin";
     static constexpr const char* wind = "wind";
     static constexpr const char* velocity = "velocity";
     static constexpr const char* scene_type = "scene-type";

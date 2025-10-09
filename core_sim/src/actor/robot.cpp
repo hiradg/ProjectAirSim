@@ -154,6 +154,7 @@ class Robot::Impl : public ActorImpl {
   void UpdateSensors(const TimeNano sim_time, const TimeNano sim_dt_nanos);
   void UpdateCameraPose(Camera* camera);
   void SetHomeGeoPoint(const HomeGeoPoint& home_geo_point);
+  void SetGPSOriginOffset(const Transform& gps_origin);
 
   std::vector<Wheel*> GetWheels() const;
   bool HasWheels() const;
@@ -185,6 +186,10 @@ class Robot::Impl : public ActorImpl {
   std::string physics_connection_settings_;
   std::string control_connection_settings_;
   bool start_landed_;
+
+  Transform gps_origin_offset_;  // GPS origin independent of visual origin
+  bool use_gps_offset_;          // Flag to use separate GPS origin
+
 
   std::string controller_type_;
   std::string controller_settings_;
@@ -331,6 +336,10 @@ void Robot::RegisterServiceMethod(const ServiceMethod& method,
 
 void Robot::SetController(std::unique_ptr<IController> controller) {
   static_cast<Robot::Impl*>(pimpl_.get())->SetController(std::move(controller));
+}
+
+void Robot::SetGPSOriginOffset(const Transform& gps_origin) {
+  static_cast<Robot::Impl*>(pimpl_.get())->SetGPSOriginOffset(gps_origin);
 }
 
 void Robot::PublishRobotPose(const PoseStampedMessage& pose) {
@@ -491,7 +500,8 @@ Robot::Impl::Impl(const std::string& id, const Transform& origin,
       indirectrefframe_(std::string("R ") + id, &kinematics_.pose),
       staticrefframe_home_(std::string("R ") + id + "_home", kinematics_.pose),
       last_actuated_rotation_simtime_(0),
-      start_landed_(false) {
+      start_landed_(false),
+      use_gps_offset_(false) {
   SetTopicPath();
   CreateTopics();
   RegisterServiceMethods();
@@ -896,6 +906,12 @@ const Transform Robot::Impl::GetGroundTruthPose() {
 }
 
 const GeoPoint Robot::Impl::GetGroundTruthGeoLocation() {
+  if (use_gps_offset_) {
+    // Calculate GPS position using the GPS origin offset instead of visual position
+    Environment temp_env = environment_;
+    temp_env.SetPosition(gps_origin_offset_.translation_);
+    return temp_env.env_info.geo_point;
+  }
   return environment_.env_info.geo_point;
 }
 
@@ -1239,6 +1255,12 @@ void Robot::Impl::UpdateCameraPose(Camera* camera) {
 void Robot::Impl::SetHomeGeoPoint(const HomeGeoPoint& home_geo_point) {
   std::lock_guard<std::mutex> lock(update_lock_);
   environment_.home_geo_point = home_geo_point;
+}
+
+void Robot::Impl::SetGPSOriginOffset(const Transform& gps_origin) {
+  std::lock_guard<std::mutex> lock(update_lock_);
+  gps_origin_offset_ = gps_origin;
+  use_gps_offset_ = true;
 }
 
 std::vector<Wheel*> Robot::Impl::GetWheels() const {

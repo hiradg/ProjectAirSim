@@ -71,6 +71,8 @@ class Scene::Loader {
 
   Transform GetActorOrigin(const json& json, const std::string& actor_id);
 
+  Transform GetActorVisualOrigin(const json& json, const std::string& actor_id);
+
   Scene::Impl& impl_;
 };
 
@@ -1353,7 +1355,18 @@ void Scene::Loader::LoadGISSettings(const json& json) {
 std::unique_ptr<Actor> Scene::Loader::LoadActorWithJSON(const json& json) {
   auto id = GetActorID(json);
   auto type = GetActorType(json, id);
-  auto origin = GetActorOrigin(json, id);
+  
+  // NEW: Get visual origin if specified, otherwise use regular origin
+  Transform visual_origin;
+  if (json.contains(Constant::Config::visual_origin)) {
+    visual_origin = GetActorVisualOrigin(json, id);
+  } else {
+    visual_origin = GetActorOrigin(json, id);
+  }
+  
+  // GPS origin is always calculated from 'origin' field
+  auto gps_origin = GetActorOrigin(json, id);
+  
   // Read ref JSON data and write it as a string
   auto robot_config =
       JsonUtils::GetJsonObject(json, Constant::Config::robot_config);
@@ -1371,21 +1384,26 @@ std::unique_ptr<Actor> Scene::Loader::LoadActorWithJSON(const json& json) {
                            impl_.id_.c_str(), id.c_str());
 
   if (type == Constant::Config::robot) {
+    // NEW: Create robot with visual_origin for UE placement
     auto robot =
-        new Robot(id, origin, impl_.logger_, impl_.topic_manager_,
+        new Robot(id, visual_origin, impl_.logger_, impl_.topic_manager_,
                   impl_.topic_path_ + "/robots", impl_.service_manager_,
                   impl_.state_manager_, impl_.home_geo_point_);
     robot->Load(robot_config);
     robot->SetPhysicsConnectionSettings(physics_connection_json.dump());
     robot->SetControlConnectionSettings(control_connection_json.dump());
     robot->SetStartLanded(start_landed_flag);
+    
+    // NEW: Store the GPS origin separately if different from visual
+    if (json.contains(Constant::Config::visual_origin)) {
+      robot->SetGPSOriginOffset(gps_origin);
+    }
 
     // Register robot's current, home, and child reference frames
     impl_.GetTransformTree()->Register(*robot, TransformTree::kRefFrameGlobal);
     impl_.GetTransformTree()->Register(robot->GetHomeRefFrame(),
                                        TransformTree::kRefFrameGlobal);
     robot->RegisterChildTransformNodes(*impl_.GetTransformTree());
-    // impl_.GetTransformTree()->Dump();
 
     return std::unique_ptr<Actor>(robot);
 
@@ -1472,6 +1490,22 @@ Transform Scene::Loader::GetActorOrigin(const json& json,
   auto origin = JsonUtils::GetTransform(json, Constant::Config::origin,
                                         impl_.home_geo_point_.geo_point);
   impl_.logger_.LogVerbose(impl_.name_, "[%s][%s] 'actor.origin' loaded.",
+                           impl_.id_.c_str(), actor_id.c_str());
+
+  return origin;
+}
+
+Transform Scene::Loader::GetActorVisualOrigin(const json& json,
+                                               const std::string& actor_id) {
+  impl_.logger_.LogVerbose(impl_.name_, "[%s][%s] Loading 'actor.visual-origin'.",
+                           impl_.id_.c_str(), actor_id.c_str());
+  
+  // Visual origin doesn't use home-geo-point - it's raw NED or direct UE coordinates
+  GeoPoint dummy_geo_point(0, 0, 0);  // Not used for visual origin
+  auto origin = JsonUtils::GetTransform(json, Constant::Config::visual_origin,
+                                        dummy_geo_point);
+  
+  impl_.logger_.LogVerbose(impl_.name_, "[%s][%s] 'actor.visual-origin' loaded.",
                            impl_.id_.c_str(), actor_id.c_str());
 
   return origin;
