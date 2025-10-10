@@ -21,6 +21,7 @@
 #include "common/smoothing_filter.hpp"
 #include "common/timer.hpp"
 #include "core_sim/actor/robot.hpp"
+#include "core_sim/geodetic_converter.hpp"
 #include "core_sim/runtime_components.hpp"
 #include "core_sim/sensors/airspeed.hpp"
 #include "core_sim/sensors/barometer.hpp"
@@ -311,6 +312,7 @@ class MavLinkApi : public VTOLFWApiBase {
   void MonitorGroundAltitude();
   int TimeoutToMilliseconds(float timeout_sec);
   Vector3 RotateHeading(const Vector3& vec) const;
+  GeoPoint RotateHeading(const GeoPoint& geo_point) const;
 
  private:  // variables
   std::unordered_map<std::string, int> actuator_id_to_output_idx_map_;
@@ -402,6 +404,8 @@ class MavLinkApi : public VTOLFWApiBase {
   float heading_offset_rad_ = 0.0f;
   float heading_offset_cos_ = 1.0f;
   float heading_offset_sin_ = 0.0f;
+  GeodeticConverter geodetic_converter_;
+  bool geodetic_converter_initialized_ = false;
   bool lock_step_enabled_ = false;  // If true, perform simulation in lock-step
                                     // with the controller if possible
   bool received_actuator_controls_ = false;

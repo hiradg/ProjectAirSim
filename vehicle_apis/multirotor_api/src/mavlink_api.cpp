@@ -215,6 +215,11 @@ void MavLinkApi::BeginUpdate() {
   // TODO: revisit for reload-scene / RL training
   Reset();
   GetSensors(sim_robot_);
+  const Environment& environment = sim_robot_.GetEnvironment();
+  const GeoPoint& home_geo_point = environment.home_geo_point.geo_point;
+  geodetic_converter_.setHome(home_geo_point.latitude, home_geo_point.longitude,
+                              home_geo_point.altitude);
+  geodetic_converter_initialized_ = true;
   InitializeGimbalStatus(sim_robot_);
   InitializeConnections();
 }
@@ -2061,6 +2066,7 @@ void MavLinkApi::SendSensorData() {
       //            gps_output.gnss.fix_type, 10);
       GeoPoint geo_point(gps_data["latitude"], gps_data["longitude"],
                          gps_data["altitude"]);
+      geo_point = RotateHeading(geo_point);
       SendHILGps(geo_point, gps_velocity, gps_velocity_xy.norm(), gps_cog,
                  gps_data["eph"], gps_data["epv"], gps_data["fix_type"], 15);
     }
@@ -2580,6 +2586,32 @@ Vector3 MavLinkApi::RotateHeading(const Vector3& vec) const {
   return Vector3(vec.x() * heading_offset_cos_ - vec.y() * heading_offset_sin_,
                  vec.x() * heading_offset_sin_ + vec.y() * heading_offset_cos_,
                  vec.z());
+}
+
+GeoPoint MavLinkApi::RotateHeading(const GeoPoint& geo_point) const {
+  if (MathUtils::IsApproximatelyZero(heading_offset_rad_) ||
+      !geodetic_converter_initialized_) {
+    return geo_point;
+  }
+
+  double north = 0.0;
+  double east = 0.0;
+  double down = 0.0;
+  geodetic_converter_.geodetic2Ned(geo_point.latitude, geo_point.longitude,
+                                   geo_point.altitude, &north, &east, &down);
+
+  Vector3 ned(static_cast<float>(north), static_cast<float>(east),
+              static_cast<float>(down));
+  Vector3 rotated_ned = RotateHeading(ned);
+
+  double latitude = geo_point.latitude;
+  double longitude = geo_point.longitude;
+  float altitude = geo_point.altitude;
+  geodetic_converter_.ned2Geodetic(rotated_ned.x(), rotated_ned.y(),
+                                   rotated_ned.z(), &latitude, &longitude,
+                                   &altitude);
+
+  return GeoPoint(latitude, longitude, altitude);
 }
 
 int MavLinkApi::TimeoutToMilliseconds(float timeout_sec) {
