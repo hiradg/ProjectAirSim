@@ -344,7 +344,12 @@ The `simple-flight-api-settings` collection contains the settings for the Simple
 
 ### PX4 settings
 
-The `px4-settings` collection contains the settings for the PX4 flight controller:
+The `px4-settings` collection contains the settings for the PX4 flight controller.  These
+options live inside each robot definition in your Project AirSim `settings.json`
+file (or the equivalent JSON you load at runtime).  Set the heading offset by
+adding the `heading-offset-deg` field to this block, as shown below.  The value
+you provide is applied on the Project AirSim side before sensor data is forwarded
+to PX4—no Python client changes are required.
 
 ``` json
 "px4-settings": {
@@ -359,6 +364,7 @@ The `px4-settings` collection contains the settings for the PX4 flight controlle
   "control-port-remote": 14540, //Used only when control-ip-address is not the local host
   "qgc-host-ip": "", //Set only when enabling GCS proxy
   "qgc-port": 14550, //Set only when enabling GCS proxy
+  "heading-offset-deg": 94.0,
   "parameters": {
     "NAV_RCL_ACT": 0,
     "NAV_DLL_ACT": 0,
