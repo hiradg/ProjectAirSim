@@ -392,7 +392,7 @@ to PX4—no Python client changes are required.
 | `control-port-remote` | string | When `use-tcp` is true and `control-ip-address` is not the local host, specifies the UDP/IP Project AirSim where Project AirSim will connect for external developer/offboard API messages.  See [PX4 communication port settings](#px4-communication-port-settings), below.  Usually `14580`.
 | `qgc-host-ip` | string | When non-empty, specifies the IP address where Project AirSim will connect to the ground control station (such as *QGroundControl*).  See [Ground control station settings](#ground-control-station-settings), below.
 | `qgc-port` | integer | When `qgc-host-ip` is non-empty, specifies the UDP/IP port where Project AirSim will connect to the ground control station.  See [Ground control station settings](#ground-control-station-settings), below.  Usually `14550`.
-| `heading-offset-deg` | number | Rotates the simulated sensor headings sent to PX4 by the specified degrees so that PX4's yaw aligns with the Unreal Engine scene orientation.  Defaults to `0`.
+| `heading-offset-deg` | number | Rotates the simulated heading references (magnetometer and GPS course) sent to PX4 by the specified degrees so that PX4's yaw aligns with the Unreal Engine scene orientation without shifting the vehicle's spawn location.  Defaults to `0`.
 | `actuator-order` | Array of actuator `id` tags | The actuator name identifiers to link to the controller's commanded outputs.  See [Actuator order settings](#actuator-order-settings) below for the order. |
 
 #### PX4 communication port settings
