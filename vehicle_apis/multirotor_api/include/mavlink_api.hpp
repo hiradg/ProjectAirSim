@@ -310,6 +310,7 @@ class MavLinkApi : public VTOLFWApiBase {
   void SendParams();
   void MonitorGroundAltitude();
   int TimeoutToMilliseconds(float timeout_sec);
+  Vector3 RotateHeading(const Vector3& vec) const;
 
  private:  // variables
   std::unordered_map<std::string, int> actuator_id_to_output_idx_map_;
@@ -398,6 +399,9 @@ class MavLinkApi : public VTOLFWApiBase {
                                     // (determined by the PX4 parameters)
   bool lock_step_active_ = false;   // If true, we're performing the simulation
                                     // in lock-step with the controller
+  float heading_offset_rad_ = 0.0f;
+  float heading_offset_cos_ = 1.0f;
+  float heading_offset_sin_ = 0.0f;
   bool lock_step_enabled_ = false;  // If true, perform simulation in lock-step
                                     // with the controller if possible
   bool received_actuator_controls_ = false;

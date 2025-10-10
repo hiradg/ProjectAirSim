@@ -7,9 +7,11 @@
 
 #include <core_sim/actuators/gimbal.hpp>
 #include <json.hpp>
+#include <cmath>
 
 #include "core_sim/clock.hpp"
 #include "core_sim/message/flight_control_setpoint_message.hpp"
+#include "core_sim/math_utils.hpp"
 #include "core_sim/transforms/transform_utils.hpp"
 
 namespace microsoft {
@@ -136,6 +138,13 @@ void MavLinkApi::LoadSettings(const Robot& robot) {
 
   connection_info_.model =
       mavlink_api_settings_json.value("model", connection_info_.model);
+
+  const float heading_offset_deg =
+      mavlink_api_settings_json.value("heading-offset-deg", 0.0f);
+  heading_offset_rad_ =
+      static_cast<float>(MathUtils::deg2Rad(heading_offset_deg));
+  heading_offset_cos_ = std::cos(heading_offset_rad_);
+  heading_offset_sin_ = std::sin(heading_offset_rad_);
 
   const json& params_json =
       mavlink_api_settings_json.value("parameters", "{ }"_json);
@@ -2034,6 +2043,7 @@ void MavLinkApi::SendSensorData() {
       auto vel = gps_data["velocity"];
       Vector3 gps_velocity(vel["x"], vel["y"],
                            vel["z"]);  // gps_output.gnss.velocity;
+      gps_velocity = RotateHeading(gps_velocity);
       Vector3 gps_velocity_xy = gps_velocity;
       gps_velocity_xy[2] = 0;
       float gps_cog;
@@ -2106,6 +2116,7 @@ void MavLinkApi::SendSensorData() {
 
     magnetic_field = Vector3(magnetic_field_body["x"], magnetic_field_body["y"],
                              magnetic_field_body["z"]);
+    magnetic_field = RotateHeading(magnetic_field);
     pmagnetic_field = &magnetic_field;
   }
 
@@ -2559,6 +2570,16 @@ void MavLinkApi::MonitorGroundAltitude() {
   if (variance >= 0) {  // filter returns -1 if we don't have enough data yet.
     ground_variance_ = variance;
   }
+}
+
+Vector3 MavLinkApi::RotateHeading(const Vector3& vec) const {
+  if (MathUtils::IsApproximatelyZero(heading_offset_rad_)) {
+    return vec;
+  }
+
+  return Vector3(vec.x() * heading_offset_cos_ - vec.y() * heading_offset_sin_,
+                 vec.x() * heading_offset_sin_ + vec.y() * heading_offset_cos_,
+                 vec.z());
 }
 
 int MavLinkApi::TimeoutToMilliseconds(float timeout_sec) {
