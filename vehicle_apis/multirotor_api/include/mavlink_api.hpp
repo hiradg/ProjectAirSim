@@ -311,6 +311,7 @@ class MavLinkApi : public VTOLFWApiBase {
   void MonitorGroundAltitude();
   int TimeoutToMilliseconds(float timeout_sec);
   Vector3 RotateHeading(const Vector3& vec) const;
+  Quaternion RotateHeading(const Quaternion& quat) const;
 
  private:  // variables
   std::unordered_map<std::string, int> actuator_id_to_output_idx_map_;

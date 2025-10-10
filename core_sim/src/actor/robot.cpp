@@ -5,6 +5,7 @@
 
 #include "core_sim/actor/robot.hpp"
 
+#include <cmath>
 #include <memory>
 
 #include "actor_impl.hpp"
@@ -18,6 +19,7 @@
 #include "core_sim/message/collision_info_message.hpp"
 #include "core_sim/message/kinematics_message.hpp"
 #include "core_sim/message/rotor_message.hpp"
+#include "core_sim/math_utils.hpp"
 #include "core_sim/runtime_components.hpp"
 #include "core_sim/sensors/camera.hpp"
 #include "core_sim/sensors/sensor.hpp"
@@ -83,6 +85,9 @@ class Robot::Impl : public ActorImpl {
 
   void InitializeSensors(const Kinematics& kinematics,
                          const Environment& environment);
+  float GetHeadingOffsetRad() const;
+  float GetHeadingOffsetCos() const;
+  float GetHeadingOffsetSin() const;
 
   void CreateTopics();
 
@@ -169,6 +174,8 @@ class Robot::Impl : public ActorImpl {
  private:
   friend class Robot::Loader;
 
+  void SetHeadingOffsetDeg(float heading_offset_deg);
+
   Robot::Loader loader_;
   std::vector<Link> links_;
   std::vector<Joint> joints_;
@@ -216,6 +223,10 @@ class Robot::Impl : public ActorImpl {
       indirectrefframe_;  // Current pose reference frame
   TransformTree::StaticRefFrame
       staticrefframe_home_;  // Home pose reference frame
+
+  float heading_offset_rad_ = 0.0f;
+  float heading_offset_cos_ = 1.0f;
+  float heading_offset_sin_ = 0.0f;
 };
 
 // -----------------------------------------------------------------------------
@@ -430,6 +441,18 @@ void Robot::InitializeSensors(const Kinematics& kinematics,
                               const Environment& environment) {
   static_cast<Robot::Impl*>(pimpl_.get())
       ->InitializeSensors(kinematics, environment);
+}
+
+float Robot::GetHeadingOffsetRad() const {
+  return static_cast<const Robot::Impl*>(pimpl_.get())->GetHeadingOffsetRad();
+}
+
+float Robot::GetHeadingOffsetCos() const {
+  return static_cast<const Robot::Impl*>(pimpl_.get())->GetHeadingOffsetCos();
+}
+
+float Robot::GetHeadingOffsetSin() const {
+  return static_cast<const Robot::Impl*>(pimpl_.get())->GetHeadingOffsetSin();
 }
 
 void Robot::UpdateCollisionInfo(const CollisionInfo& collision_info) {
@@ -1026,6 +1049,19 @@ void Robot::Impl::InitializeSensors(const Kinematics& kinematics,
   }
 }
 
+float Robot::Impl::GetHeadingOffsetRad() const { return heading_offset_rad_; }
+
+float Robot::Impl::GetHeadingOffsetCos() const { return heading_offset_cos_; }
+
+float Robot::Impl::GetHeadingOffsetSin() const { return heading_offset_sin_; }
+
+void Robot::Impl::SetHeadingOffsetDeg(float heading_offset_deg) {
+  heading_offset_rad_ =
+      static_cast<float>(MathUtils::deg2Rad(static_cast<double>(heading_offset_deg)));
+  heading_offset_cos_ = std::cos(heading_offset_rad_);
+  heading_offset_sin_ = std::sin(heading_offset_rad_);
+}
+
 void Robot::Impl::UpdateCollisionInfo(const CollisionInfo& collision_info) {
   std::lock_guard<std::mutex> lock(update_lock_);
   collision_info_ = collision_info;
@@ -1433,6 +1469,17 @@ void Robot::Loader::LoadController(const json& json) {
   impl_.controller_type_ =
       JsonUtils::GetIdentifier(controller_json, Constant::Config::type);
   impl_.controller_settings_ = controller_json.dump();
+
+  impl_.SetHeadingOffsetDeg(0.0f);
+  if (impl_.controller_type_ == Constant::Config::px4_api) {
+    auto px4_settings_json =
+        JsonUtils::GetJsonObject(controller_json, "px4-settings");
+    if (!JsonUtils::IsEmpty(px4_settings_json)) {
+      const float heading_offset_deg = JsonUtils::GetNumber<float>(
+          px4_settings_json, "heading-offset-deg", 0.0f);
+      impl_.SetHeadingOffsetDeg(heading_offset_deg);
+    }
+  }
 
   impl_.logger_.LogVerbose(impl_.name_, "[%s] 'controller' loaded.",
                            impl_.id_.c_str());

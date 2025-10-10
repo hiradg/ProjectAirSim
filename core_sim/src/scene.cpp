@@ -19,6 +19,7 @@
 #include "core_sim/error.hpp"
 #include "core_sim/file_utils.hpp"
 #include "core_sim/geodetic_converter.hpp"
+#include "core_sim/math_utils.hpp"
 #include "core_sim/service_method.hpp"
 #include "core_sim/viewport_camera.hpp"
 #include "json.hpp"
@@ -1376,6 +1377,14 @@ std::unique_ptr<Actor> Scene::Loader::LoadActorWithJSON(const json& json) {
                   impl_.topic_path_ + "/robots", impl_.service_manager_,
                   impl_.state_manager_, impl_.home_geo_point_);
     robot->Load(robot_config);
+    if (!MathUtils::IsApproximatelyZero(robot->GetHeadingOffsetRad())) {
+      impl_.logger_.LogVerbose(
+          impl_.name_,
+          "[%s][%s] Applying PX4 heading offset %.2f degrees to align sensor "
+          "data.",
+          impl_.id_.c_str(), id.c_str(),
+          MathUtils::rad2Deg(robot->GetHeadingOffsetRad()));
+    }
     robot->SetPhysicsConnectionSettings(physics_connection_json.dump());
     robot->SetControlConnectionSettings(control_connection_json.dump());
     robot->SetStartLanded(start_landed_flag);

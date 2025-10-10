@@ -139,12 +139,9 @@ void MavLinkApi::LoadSettings(const Robot& robot) {
   connection_info_.model =
       mavlink_api_settings_json.value("model", connection_info_.model);
 
-  const float heading_offset_deg =
-      mavlink_api_settings_json.value("heading-offset-deg", 0.0f);
-  heading_offset_rad_ =
-      static_cast<float>(MathUtils::deg2Rad(heading_offset_deg));
-  heading_offset_cos_ = std::cos(heading_offset_rad_);
-  heading_offset_sin_ = std::sin(heading_offset_rad_);
+  heading_offset_rad_ = robot.GetHeadingOffsetRad();
+  heading_offset_cos_ = robot.GetHeadingOffsetCos();
+  heading_offset_sin_ = robot.GetHeadingOffsetSin();
 
   const json& params_json =
       mavlink_api_settings_json.value("parameters", "{ }"_json);
@@ -2105,8 +2102,10 @@ void MavLinkApi::SendSensorData() {
     const ImuMessage& imu_output = imu_sensor_->getOutput();
 
     angular_velocity = imu_output.GetAngularVelocity();
+    angular_velocity = RotateHeading(angular_velocity);
     pangular_velocity = &angular_velocity;
     linear_acceleration = imu_output.GetLinearAcceleration();
+    linear_acceleration = RotateHeading(linear_acceleration);
     plinear_acceleration = &linear_acceleration;
   }
 
@@ -2580,6 +2579,16 @@ Vector3 MavLinkApi::RotateHeading(const Vector3& vec) const {
   return Vector3(vec.x() * heading_offset_cos_ - vec.y() * heading_offset_sin_,
                  vec.x() * heading_offset_sin_ + vec.y() * heading_offset_cos_,
                  vec.z());
+}
+
+Quaternion MavLinkApi::RotateHeading(const Quaternion& quat) const {
+  if (MathUtils::IsApproximatelyZero(heading_offset_rad_)) {
+    return quat;
+  }
+
+  const Quaternion yaw_rotation =
+      TransformUtils::ToQuaternion(0.0f, 0.0f, heading_offset_rad_);
+  return yaw_rotation * quat;
 }
 
 int MavLinkApi::TimeoutToMilliseconds(float timeout_sec) {

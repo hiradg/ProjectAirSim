@@ -111,6 +111,9 @@ class Robot : public Actor {
                              TimeNano external_time_stamp = -1);
 
   void InitializeSensors(const Kinematics&, const Environment&);
+  float GetHeadingOffsetRad() const;
+  float GetHeadingOffsetCos() const;
+  float GetHeadingOffsetSin() const;
 
   void UpdateCollisionInfo(const CollisionInfo& collision_info);
   void SetHasCollided(bool has_collided);
