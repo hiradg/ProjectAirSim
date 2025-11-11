@@ -366,6 +366,7 @@ docs/README.md
 
 # virtualenv
 env/
+client/python/**/airsim-venv
 
 # client library dev install
 **/projectairsim.egg-info/
@@ -376,3 +377,5 @@ env/
 # Simulink cache
 **/slprj
 *.slxc
+
+unreal/Blocks/**/Samples
